@@ -1,65 +1,6 @@
 package epubwriter
 
-var chapter = `<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-<head>
-<meta charset="utf-8"/>
-<title>{{.Title}}</title>
-{{range .Styles}}
-<link rel="stylesheet" href="{{.Filename}}" type="text/css"/>
-{{end}}
-</head>
-<body class="epub">
-<section class="body-rw Chapter-rw" epub:type="bodymatter chapter">
-{{.Html}}
-</section>
-</body>
-</html>`
-
-var containerOpf = `<?xml version="1.0" encoding="utf-8"?>
-<package unique-identifier="pub-id" version="3.0" xml:lang="en" xmlns="http://www.idpf.org/2007/opf">
-	<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-		<dc:title id="title">{{.Title}}</dc:title>
-		<dc:creator id="creator">{{.Author}}</dc:creator>
-		<dc:identifier id="pub-id">{{.Identifier}}</dc:identifier>
-		<dc:language>en-US</dc:language>
-	</metadata>
-	<manifest>
-        {{range .Manifest}}
-		<item href="{{.Href}}" id="{{.Id}}" media-type="{{.MediaType}}"{{if .Properties}} properties="{{.Properties}}"{{end}}/>
-        {{end}}
-	</manifest>
-	<spine toc="ncx">
-        {{range .Spine}}
-		<itemref idref="{{.Idref}}" linear="{{if .Linear}}yes{{else}}no{{end}}"/>
-        {{end}}
-	</spine>
-</package>`
-
-var containerXml = `<?xml version="1.0" encoding="utf-8"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-	<rootfiles>
-		<rootfile full-path="container.opf" media-type="application/oebps-package+xml"/>
-	</rootfiles>
-</container>`
-
-var cover = `<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-<head>
-<title>{{.Title}}</title>
-{{range .Styles}}
-<link rel="stylesheet" href="{{.Filename}}" type="text/css"/>
-{{end}}
-<meta charset="utf-8"/>
-</head>
-<body>
-<div>
-<img src="{{.Cover}}" alt="Cover Image" title="Cover Image"/>
-</div>
-</body>
-</html>`
-
-var coverimage = `data:image/jpeg;base64,
+var base64Cover = `data:image/jpeg;base64,
 /9j/4AAQSkZJRgABAgAAZABkAAD/7AARRHVja3kAAQAEAAAAUAAA/+4ADkFkb2JlAGTAAAAAAf/b
 AIQAAgICAgICAgICAgMCAgIDBAMCAgMEBQQEBAQEBQYFBQUFBQUGBgcHCAcHBgkJCgoJCQwMDAwM
 DAwMDAwMDAwMDAEDAwMFBAUJBgYJDQsJCw0PDg4ODg8PDAwMDAwPDwwMDAwMDA8MDAwMDAwMDAwM
@@ -200,38 +141,7 @@ ACjjuVcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAB/9k=`
 
-var mimetype = `application/epub+zip`
-
-var ncx = `<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE ncx
-  PUBLIC '-//NISO//DTD ncx 2005-1//EN'
-  'http://www.daisy.org/z3986/2005/ncx-2005-1.dtd'>
-<ncx version="2005-1" xml:lang="en-US" xmlns="http://www.daisy.org/z3986/2005/ncx/">
-	<docTitle>
-		<text>{{.Author}}</text>
-	</docTitle>
-	<docAuthor>
-		<text>{{.Title}}</text>
-	</docAuthor>
-	<navMap>
-		<navPoint class="" id="navpoint-1" playOrder="0">
-			<navLabel>
-				<text>Cover</text>
-			</navLabel>
-			<content src="cover.xhtml"/>
-		</navPoint>
-        {{range $i, $c := .Chapters}}
-		<navPoint class="" id="navpoint-{{add $i 2}}" playOrder="0">
-			<navLabel>
-				<text>{{$c.Title}}</text>
-			</navLabel>
-			<content src="{{$c.Filename}}"/>
-		</navPoint>
-        {{end}}
-	</navMap>
-</ncx>`
-
-var stylesheet = `html, body {
+var cssStyles = `html, body {
     margin: 0;
     padding: 0;
 }
@@ -277,7 +187,111 @@ blockquote {
     font-style: normal;
 }`
 
-var tableOfContents = `<?xml version="1.0" encoding="UTF-8"?>
+var tplChapter = `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<meta charset="utf-8"/>
+<title>{{.Title}}</title>
+{{range .Styles}}
+<link rel="stylesheet" href="{{.Filename}}" type="text/css"/>
+{{end}}
+</head>
+<body class="epub">
+<section class="body-rw Chapter-rw" epub:type="bodymatter chapter">
+{{.Html}}
+</section>
+</body>
+</html>`
+
+var tplContainerOpf = `<?xml version="1.0" encoding="utf-8"?>
+<package unique-identifier="pub-id" version="3.0" xml:lang="en" xmlns="http://www.idpf.org/2007/opf">
+	<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+		<dc:title id="title">{{.Title}}</dc:title>
+		<dc:creator id="creator">{{.Author}}</dc:creator>
+		<dc:identifier id="pub-id">{{.Identifier}}</dc:identifier>
+		<dc:language>en-US</dc:language>
+	</metadata>
+	<manifest>
+        {{range .Manifest}}
+		<item href="{{.Href}}" id="{{.Id}}" media-type="{{.MediaType}}"{{if .Properties}} properties="{{.Properties}}"{{end}}/>
+        {{end}}
+	</manifest>
+	<spine toc="ncx">
+        {{range .Spine}}
+		<itemref idref="{{.Idref}}" linear="{{if .Linear}}yes{{else}}no{{end}}"/>
+        {{end}}
+	</spine>
+</package>`
+
+var containerXml = `<?xml version="1.0" encoding="utf-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+	<rootfiles>
+		<rootfile full-path="container.opf" media-type="application/oebps-package+xml"/>
+	</rootfiles>
+</container>`
+
+var tplCoverXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<title>{{.Title}}</title>
+{{range .Styles}}
+<link rel="stylesheet" href="{{.Filename}}" type="text/css"/>
+{{end}}
+<meta charset="utf-8"/>
+</head>
+<body>
+<div>
+<img src="{{.Cover}}" alt="Cover Image" title="Cover Image"/>
+</div>
+</body>
+</html>`
+
+var tplNCX = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE ncx
+  PUBLIC '-//NISO//DTD ncx 2005-1//EN'
+  'http://www.daisy.org/z3986/2005/ncx-2005-1.dtd'>
+<ncx version="2005-1" xml:lang="en-US" xmlns="http://www.daisy.org/z3986/2005/ncx/">
+	<docTitle>
+		<text>{{.Author}}</text>
+	</docTitle>
+	<docAuthor>
+		<text>{{.Title}}</text>
+	</docAuthor>
+	<navMap>
+		<navPoint class="" id="navpoint-1" playOrder="0">
+			<navLabel>
+				<text>Cover</text>
+			</navLabel>
+			<content src="cover.xhtml"/>
+		</navPoint>
+        {{range $i, $c := .Chapters}}
+		<navPoint class="" id="navpoint-{{add $i 2}}" playOrder="0">
+			<navLabel>
+				<text>{{$c.Title}}</text>
+			</navLabel>
+			<content src="{{$c.Filename}}"/>
+		</navPoint>
+        {{end}}
+	</navMap>
+</ncx>`
+
+var tplTitlePage = `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+<title>{{.Title}}</title>
+{{range .Styles}}
+<link rel="stylesheet" href="{{.Filename}}" type="text/css"/>
+{{end}}
+<meta charset="utf-8"/>
+</head>
+<body style="text-align: center;">
+<div class="BookTitlePage-rw" epub:type="frontmatter titlepage">
+<img src="{{.Cover}}" alt="Title Page" title="Title Page"/>
+</div>
+</body>
+</html>`
+
+var tplTOC = `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
 <title>{{.Title}}</title>
@@ -304,22 +318,6 @@ var tableOfContents = `<?xml version="1.0" encoding="UTF-8"?>
         </ol>
     </nav>
 </section>
-</body>
-</html>`
-
-var titlePage = `<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-<head>
-<title>{{.Title}}</title>
-{{range .Styles}}
-<link rel="stylesheet" href="{{.Filename}}" type="text/css"/>
-{{end}}
-<meta charset="utf-8"/>
-</head>
-<body style="text-align: center;">
-<div class="BookTitlePage-rw" epub:type="frontmatter titlepage">
-<img src="{{.Cover}}" alt="Title Page" title="Title Page"/>
-</div>
 </body>
 </html>`
 

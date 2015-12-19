@@ -15,6 +15,7 @@ type Writer struct {
     Chapters []*Chapter
     Cover *Cover
     Identifier string
+    Items []*Item
     Language string
     Manifest []*Manifest
     Spine []*Spine
@@ -30,6 +31,11 @@ type Chapter struct {
 }
 
 type Cover struct {
+    Bytes []byte
+    Filename string
+}
+
+type Item struct {
     Bytes []byte
     Filename string
 }
@@ -58,6 +64,7 @@ func NewWriter(title string, author string, identifier string) *Writer {
     w.Author = author
     w.Chapters = make([]*Chapter, 0)
     w.Identifier = identifier
+    w.Items = make([]*Item, 0)
     w.Language = "en-US"
     w.Manifest = make([]*Manifest, 0)
     w.Spine = make([]*Spine, 0)
@@ -91,7 +98,7 @@ func NewWriter(title string, author string, identifier string) *Writer {
     w.appendSpine("cover", false)
     w.appendSpine("titlepage", true)
 
-    w.AppendStyle([]byte(stylesheet))
+    w.AppendStyle([]byte(cssStyles))
 
     return w
 }
@@ -154,6 +161,23 @@ func (w *Writer) AddCover(filename string, b []byte) *Cover {
     return c
 }
 
+func (w *Writer) AddItem(filename string, mediatype string, b []byte) *Item {
+    i := new(Item)
+
+    i.Bytes = b
+    i.Filename = filename
+
+    w.Items = append(w.Items, i)
+
+    w.appendManifest(
+        i.Filename,
+        fmt.Sprintf("item%04d", len(w.Items)),
+        mediatype,
+        "")
+
+    return i
+}
+
 func (w *Writer) Bytes() ([]byte, error) {
     w.appendSpine("toc", false)
 
@@ -161,7 +185,7 @@ func (w *Writer) Bytes() ([]byte, error) {
 
     z := zip.NewWriter(buf)
 
-    err := w.writeFile(z, "mimetype", []byte(mimetype))
+    err := w.writeFile(z, "mimetype", []byte("application/epub+zip"))
     if err != nil {
         return nil, err
     }
@@ -217,6 +241,13 @@ func (w *Writer) Bytes() ([]byte, error) {
         }
     }
 
+    for _, i := range w.Items {
+        err = w.writeFile(z, i.Filename, i.Bytes)
+        if err != nil {
+            return nil, err
+        }
+    }
+
     z.Close()
 
     return buf.Bytes(), nil
@@ -256,7 +287,7 @@ func (w *Writer) appendSpine(idref string, linear bool) *Spine {
 }
 
 func (w *Writer) writeChapter(z *zip.Writer, c *Chapter) error {
-    t, err := template.New("T").Parse(chapter)
+    t, err := template.New("T").Parse(tplChapter)
     if err != nil {
         return err
     }
@@ -278,7 +309,7 @@ func (w *Writer) writeChapter(z *zip.Writer, c *Chapter) error {
 }
 
 func (w *Writer) writeCover(z *zip.Writer) error {
-    t, err := template.New("T").Parse(cover)
+    t, err := template.New("T").Parse(tplCoverXhtml)
     if err != nil {
         return err
     }
@@ -291,7 +322,7 @@ func (w *Writer) writeCover(z *zip.Writer) error {
     if w.Cover != nil {
         m["Cover"] = w.Cover.Filename
     } else {
-        m["Cover"] = coverimage
+        m["Cover"] = base64Cover
     }
 
     buf := new(bytes.Buffer)
@@ -316,7 +347,7 @@ func (w *Writer) writeFile(z *zip.Writer, s string, b []byte) error {
 }
 
 func (w *Writer) writeManifest(z *zip.Writer) error {
-    t, err := template.New("T").Parse(containerOpf)
+    t, err := template.New("T").Parse(tplContainerOpf)
     if err != nil {
         return err
     }
@@ -336,7 +367,7 @@ func (w *Writer) writeNcx(z *zip.Writer) error {
         "add": func(a int, b int) int { return a + b },
     }
 
-    t, err := template.New("T").Funcs(f).Parse(ncx)
+    t, err := template.New("T").Funcs(f).Parse(tplNCX)
     if err != nil {
         return err
     }
@@ -352,7 +383,7 @@ func (w *Writer) writeNcx(z *zip.Writer) error {
 }
 
 func (w *Writer) writeTableOfContents(z *zip.Writer) error {
-    t, err := template.New("T").Parse(tableOfContents)
+    t, err := template.New("T").Parse(tplTOC)
     if err != nil {
         return err
     }
@@ -368,7 +399,7 @@ func (w *Writer) writeTableOfContents(z *zip.Writer) error {
 }
 
 func (w *Writer) writeTitlePage(z *zip.Writer) error {
-    t, err := template.New("T").Parse(titlePage)
+    t, err := template.New("T").Parse(tplTitlePage)
     if err != nil {
         return err
     }
@@ -381,7 +412,7 @@ func (w *Writer) writeTitlePage(z *zip.Writer) error {
     if w.Cover != nil {
         m["Cover"] = w.Cover.Filename
     } else {
-        m["Cover"] = coverimage
+        m["Cover"] = base64Cover
     }
 
     buf := new(bytes.Buffer)
